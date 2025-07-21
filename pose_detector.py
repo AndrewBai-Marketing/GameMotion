@@ -7,9 +7,12 @@ mp_drawing = mp.solutions.drawing_utils
 
 def get_keypoints(frame):
     results = pose.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+    keypoints = {}
+
     if results.pose_landmarks:
-        return {lm.name: [lm.x, lm.y] for lm in mp_pose.PoseLandmark}
-    return {}
+        for idx, lm in enumerate(results.pose_landmarks.landmark):
+            keypoints[f"{mp_pose.PoseLandmark(idx).name}"] = [lm.x, lm.y]
+    return keypoints
 
 def show_pose(frame):
     results = pose.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))

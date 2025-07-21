@@ -1,16 +1,9 @@
-from pynput.keyboard import Controller
-
-keyboard = Controller()
-
-ACTION_KEY_MAP = {
-    "Jump": "space",
-    "Left": "a",
-    "Right": "d",
-    "Shoot": "j"
-}
+import keyboard
+import time
 
 def trigger_key(action):
-    if action in ACTION_KEY_MAP:
-        key = ACTION_KEY_MAP[action]
-        keyboard.press(key)
-        keyboard.release(key)
+    key = action.lower()
+    print(f"🔘 Holding: {key}")
+    keyboard.press(key)
+    time.sleep(0.1)  # hold key for 100ms (adjustable)
+    keyboard.release(key)

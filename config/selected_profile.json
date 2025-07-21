@@ -1,0 +1,13 @@
+{
+  "profile_name": "TestProfile",
+  "controls": {
+    "Jump": "Jump",
+    "Left": "Left",
+    "Right": "Right"
+  },
+  "key_mapping": {
+    "Jump": "space",
+    "Left": "a",
+    "Right": "d"
+  }
+}
