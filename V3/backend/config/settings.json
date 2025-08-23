@@ -1,0 +1,15 @@
+{
+  "fire_threshold": 0.98,
+  "decision_margin": 0.02,       // lower than your 0.043 diff
+  "ratio_threshold": 1.03,       // tie-break if diff is small
+  "strict_quantile": 0.90,
+  "single_label_threshold": 0.98,
+  "min_samples_per_action": 10,
+  "frames_confirm": 3,
+  "release_threshold": 0.90,
+  "rearm_frames": 6,
+  "action_cooldown_sec": 0.6,
+  "auto_create_profile": true,
+  "auto_profile_default_keys": ["space"],
+  "auto_profile_hold_ms": 50
+}

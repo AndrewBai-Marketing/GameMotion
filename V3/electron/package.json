@@ -1,0 +1,40 @@
+{
+  "name": "gamemotion-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "dev": "cross-env NODE_ENV=development electron .",
+    "start": "electron .",
+    "build": "electron-builder -w --x64"
+  },
+  "dependencies": {
+    "cross-env": "^7.0.3",
+    "electron": "^31.3.0",
+    "tree-kill": "^1.2.2",
+    "wait-on": "^7.2.0"
+  },
+  "devDependencies": {
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "org.gamemotion.desktop",
+    "productName": "GameMotion",
+    "directories": {
+      "buildResources": "build"
+    },
+    "files": [
+      "**/*",
+      "!node_modules/.cache/**"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

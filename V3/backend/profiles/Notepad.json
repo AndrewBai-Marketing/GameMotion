@@ -1,0 +1,7 @@
+{
+  "exe_name": "Notepad.exe",
+  "display_name": "Notepad",
+  "actions": {
+    "JUMP": { "type": "keyboard", "keys": ["space"], "hold_ms": 50 }
+  }
+}
