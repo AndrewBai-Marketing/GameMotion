@@ -26,35 +26,44 @@ try:
     Button = PynputButton
 
     # Map normalized key names to pynput Key objects
-    PYNPUT_SPECIAL_KEYS = {
-        "space": Key.space,
-        "enter": Key.enter,
-        "escape": Key.esc,
-        "tab": Key.tab,
-        "ctrl": Key.ctrl,
-        "alt": Key.alt,
-        "shift": Key.shift,
-        "left": Key.left,
-        "right": Key.right,
-        "up": Key.up,
-        "down": Key.down,
-        "pageup": Key.page_up,
-        "pagedown": Key.page_down,
-        "delete": Key.delete,
-        "backspace": Key.backspace,
-        "home": Key.home,
-        "end": Key.end,
-        "insert": Key.insert,
-        "f1": Key.f1, "f2": Key.f2, "f3": Key.f3, "f4": Key.f4,
-        "f5": Key.f5, "f6": Key.f6, "f7": Key.f7, "f8": Key.f8,
-        "f9": Key.f9, "f10": Key.f10, "f11": Key.f11, "f12": Key.f12,
+    # Built dynamically to handle platform differences (e.g., no Insert key on Mac)
+    _KEY_MAPPING = {
+        "space": "space",
+        "enter": "enter",
+        "escape": "esc",
+        "tab": "tab",
+        "ctrl": "ctrl",
+        "alt": "alt",
+        "shift": "shift",
+        "left": "left",
+        "right": "right",
+        "up": "up",
+        "down": "down",
+        "pageup": "page_up",
+        "pagedown": "page_down",
+        "delete": "delete",
+        "backspace": "backspace",
+        "home": "home",
+        "end": "end",
+        "insert": "insert",  # May not exist on Mac
+        "f1": "f1", "f2": "f2", "f3": "f3", "f4": "f4",
+        "f5": "f5", "f6": "f6", "f7": "f7", "f8": "f8",
+        "f9": "f9", "f10": "f10", "f11": "f11", "f12": "f12",
     }
+
+    for key_name, attr_name in _KEY_MAPPING.items():
+        if hasattr(Key, attr_name):
+            PYNPUT_SPECIAL_KEYS[key_name] = getattr(Key, attr_name)
 
     # Add cmd/super key (platform-specific)
     if IS_MAC:
-        PYNPUT_SPECIAL_KEYS["cmd"] = Key.cmd
+        if hasattr(Key, 'cmd'):
+            PYNPUT_SPECIAL_KEYS["cmd"] = Key.cmd
     else:
-        PYNPUT_SPECIAL_KEYS["cmd"] = Key.cmd_l if hasattr(Key, 'cmd_l') else Key.ctrl
+        if hasattr(Key, 'cmd_l'):
+            PYNPUT_SPECIAL_KEYS["cmd"] = Key.cmd_l
+        elif hasattr(Key, 'ctrl'):
+            PYNPUT_SPECIAL_KEYS["cmd"] = Key.ctrl
 
     # Map mouse button names to pynput Button objects
     PYNPUT_MOUSE_BUTTONS = {
