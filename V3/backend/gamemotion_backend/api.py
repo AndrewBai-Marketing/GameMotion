@@ -93,7 +93,7 @@ profman = ProfileManager()
 @app.get("/profiles")
 def list_profiles():
     # Return list of exe/profile names
-    return profman.list_profile_files()
+    return profman.list_profile_names()
 
 @app.get("/profiles/{exe_name}")
 def get_profile(exe_name: str):

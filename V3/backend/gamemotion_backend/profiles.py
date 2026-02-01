@@ -37,11 +37,20 @@ class ProfileManager:
     def list_profile_names(self):
         """Return profile file stems (e.g., ['Notepad','Minecraft'])."""
         names = []
-        for p in PROFILES_DIR.glob("*.json"):
+        for p in self.base.glob("*.json"):
             try:
-                # optionally ensure it’s valid JSON
+                # optionally ensure it's valid JSON
                 json.loads(p.read_text(encoding="utf-8"))
                 names.append(p.stem)
             except Exception:
                 pass
         return sorted(names)
+
+    def save_profile(self, exe_name: str, profile: Dict[str, Any]) -> None:
+        """Save a profile to disk."""
+        path = self._path_for_exe(exe_name)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(profile, indent=2), encoding="utf-8")
+        # Update cache
+        self._cache[exe_name] = profile
+        self._mtimes[exe_name] = path.stat().st_mtime

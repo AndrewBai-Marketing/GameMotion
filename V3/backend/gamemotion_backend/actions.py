@@ -88,7 +88,10 @@ class ActionDB:
     def _centroids(self, exe_name: str) -> Dict[str, np.ndarray]:
         """Compute or fetch cached centroids per action label."""
         exe_dir = self.base / exe_name
-        mtime = exe_dir.stat().st_mtime if exe_dir.exists() else 0.0
+        try:
+            mtime = exe_dir.stat().st_mtime
+        except (FileNotFoundError, OSError):
+            mtime = 0.0
         cached = self._centroid_cache.get(exe_name)
         if cached is not None and self._centroid_cache_mtime.get(exe_name) == mtime:
             return cached
