@@ -1,7 +1,10 @@
 # gamemotion_backend/pose.py
 import cv2
 import numpy as np
-import mediapipe as mp
+import logging
+import threading
+
+log = logging.getLogger("pose")
 
 _BODY_CONN = [
     # torso
@@ -15,24 +18,84 @@ _BODY_CONN = [
 ]
 _FACE_MAX_IDX = 10  # pose landmark indices 0..10 are head/face (nose/eyes/ears/mouth)
 
+
 class PoseTracker:
+    """
+    Lazy-loading pose tracker using MediaPipe BlazePose.
+
+    The MediaPipe model is loaded on first use (first call to process())
+    rather than at construction time, which significantly improves startup time.
+    """
+
     def __init__(self, complexity=0, min_det=0.5, min_track=0.5, ignore_face=True):
         self.ignore_face = bool(ignore_face)
-        self._mp_pose = mp.solutions.pose
-        self._mp_draw = mp.solutions.drawing_utils
-        self._pose = self._mp_pose.Pose(
-            model_complexity=int(complexity),
-            min_detection_confidence=float(min_det),
-            min_tracking_confidence=float(min_track),
-            enable_segmentation=False,
-            smooth_landmarks=True,
-        )
+        self._complexity = int(complexity)
+        self._min_det = float(min_det)
+        self._min_track = float(min_track)
 
-        # drawing specs
-        self._spec_lmk = self._mp_draw.DrawingSpec(color=(0, 255, 255), thickness=2, circle_radius=2)
-        self._spec_con = self._mp_draw.DrawingSpec(color=(0, 255, 0), thickness=2, circle_radius=2)
+        # Lazy-loaded components
+        self._mp_pose = None
+        self._mp_draw = None
+        self._pose = None
+        self._spec_lmk = None
+        self._spec_con = None
+
+        # Thread safety for lazy initialization
+        self._init_lock = threading.Lock()
+        self._initialized = False
+
+        log.info(f"PoseTracker created (lazy loading enabled, complexity={complexity})")
+
+    def _ensure_initialized(self):
+        """Lazy initialization of MediaPipe - called on first use."""
+        if self._initialized:
+            return
+
+        with self._init_lock:
+            # Double-check after acquiring lock
+            if self._initialized:
+                return
+
+            log.info("Initializing MediaPipe pose model...")
+            import mediapipe as mp
+
+            self._mp_pose = mp.solutions.pose
+            self._mp_draw = mp.solutions.drawing_utils
+
+            self._pose = self._mp_pose.Pose(
+                model_complexity=self._complexity,
+                min_detection_confidence=self._min_det,
+                min_tracking_confidence=self._min_track,
+                enable_segmentation=False,
+                smooth_landmarks=True,
+            )
+
+            # drawing specs
+            self._spec_lmk = self._mp_draw.DrawingSpec(color=(0, 255, 255), thickness=2, circle_radius=2)
+            self._spec_con = self._mp_draw.DrawingSpec(color=(0, 255, 0), thickness=2, circle_radius=2)
+
+            self._initialized = True
+            log.info("MediaPipe pose model initialized successfully")
+
+    def warmup(self):
+        """
+        Pre-initialize the model in a background thread.
+        Call this early to reduce latency on first frame processing.
+        """
+        def _warmup():
+            self._ensure_initialized()
+            # Process a dummy frame to fully warm up the model
+            dummy = np.zeros((480, 640, 3), dtype=np.uint8)
+            self.process(dummy)
+            log.info("PoseTracker warmup complete")
+
+        thread = threading.Thread(target=_warmup, daemon=True)
+        thread.start()
+        return thread
 
     def process(self, frame_bgr):
+        """Process a frame and return pose results."""
+        self._ensure_initialized()
         # mediapipe expects RGB
         rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
         return self._pose.process(rgb)
@@ -76,3 +139,11 @@ class PoseTracker:
                 continue
             cx, cy = int(p.x * w), int(p.y * h)
             cv2.circle(frame_bgr, (cx, cy), 3, (0, 255, 255), -1)
+
+    def close(self):
+        """Release resources."""
+        if self._pose is not None:
+            self._pose.close()
+            self._pose = None
+            self._initialized = False
+            log.info("PoseTracker closed")

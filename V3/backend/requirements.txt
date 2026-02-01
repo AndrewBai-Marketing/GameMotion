@@ -5,14 +5,25 @@ numpy>=1.26
 pillow>=10.3.0
 tqdm>=4.66.4
 
-# Windows integration & input
-pywin32>=306
-psutil>=5.9.8
-pydirectinput>=1.0.4
-keyboard>=0.13.5
-mouse>=0.7.1
+# Cross-platform input simulation (preferred)
+pynput>=1.7.6
 
-# Local API (optional) — not a webapp UI, just an API you can call from a native UI later
+# Platform-specific input (Windows only, optional - pynput is preferred)
+# These are only needed if pynput doesn't work for specific games
+pywin32>=306; sys_platform == "win32"
+pydirectinput>=1.0.4; sys_platform == "win32"
+keyboard>=0.13.5; sys_platform == "win32"
+mouse>=0.7.1; sys_platform == "win32"
+
+# macOS dependencies (for window detection, installed via pyobjc)
+pyobjc-core>=10.0; sys_platform == "darwin"
+pyobjc-framework-Cocoa>=10.0; sys_platform == "darwin"
+pyobjc-framework-Quartz>=10.0; sys_platform == "darwin"
+
+# Process management (cross-platform)
+psutil>=5.9.8
+
+# Local API
 fastapi>=0.112.1
 uvicorn[standard]>=0.30.5
 pydantic>=2.8.2
