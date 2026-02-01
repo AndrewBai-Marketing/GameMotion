@@ -1,0 +1,62 @@
+name: Test macOS
+
+on:
+  push:
+    branches: [mac-support]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          cd V3/backend
+          pip install -r requirements.txt
+
+      - name: Test imports
+        run: |
+          cd V3/backend
+          python -c "
+          from gamemotion_backend import key_sender, game_detect, pose, main, api
+          from gamemotion_backend.key_sender import KeySender, PYNPUT_SPECIAL_KEYS
+          from gamemotion_backend.profiles import ProfileManager
+          from gamemotion_backend.actions import ActionDB
+
+          print('Keys available:', list(PYNPUT_SPECIAL_KEYS.keys()))
+          ks = KeySender()
+          print('KeySender backend:', ks._backend)
+
+          pm = ProfileManager()
+          print('ProfileManager methods:', [m for m in dir(pm) if not m.startswith('_')])
+
+          print('All imports OK!')
+          "
+
+      - name: Test API endpoints
+        run: |
+          cd V3/backend
+          pip install httpx
+          python -c "
+          from gamemotion_backend.api import app
+          from fastapi.testclient import TestClient
+
+          client = TestClient(app)
+
+          # Test endpoints
+          assert client.get('/health').json()['ok'] == True
+          print('/health: OK')
+
+          profiles = client.get('/profiles').json()
+          print(f'/profiles: {profiles}')
+
+          print('API tests passed!')
+          "
