@@ -1,6 +1,6 @@
 # Core runtime
 opencv-python==4.10.0.84
-mediapipe>=0.10.14
+mediapipe==0.10.14
 numpy>=1.26
 pillow>=10.3.0
 tqdm>=4.66.4
