@@ -56,6 +56,26 @@ export SSL_CERT_FILE=$(python3 -c "import certifi; print(certifi.where())")
 - Grant Accessibility permissions to your terminal app
 - On newer macOS, you may also need Input Monitoring permission
 
+## Building the Desktop App
+
+To build the macOS installer (.dmg):
+
+```bash
+# Install Node.js if you don't have it
+brew install node
+
+# Build the app
+cd V3/electron
+npm install
+npm run build:mac
+```
+
+Output files in `V3/electron/dist/`:
+- `GameMotion-1.0.0-arm64.dmg` - Apple Silicon (M1/M2/M3)
+- `GameMotion-1.0.0.dmg` - Intel
+
+**Note:** The app is not code-signed. On first launch, right-click → Open to bypass Gatekeeper.
+
 ## Project Structure
 
 ```
