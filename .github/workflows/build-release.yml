@@ -1,0 +1,142 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: V3/electron
+        run: npm install
+
+      - name: Build Windows installer
+        working-directory: V3/electron
+        run: npm run build:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: |
+            V3/electron/dist/*.exe
+            V3/electron/dist/*.msi
+
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: V3/electron
+        run: npm install
+
+      - name: Build macOS installer
+        working-directory: V3/electron
+        run: npm run build:mac
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-installer
+          path: |
+            V3/electron/dist/*.dmg
+            V3/electron/dist/*.zip
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: V3/electron
+        run: npm install
+
+      - name: Build Linux installer
+        working-directory: V3/electron
+        run: npm run build:linux
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-installer
+          path: |
+            V3/electron/dist/*.AppImage
+            V3/electron/dist/*.deb
+
+  create-release:
+    needs: [build-windows, build-mac, build-linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: List artifacts
+        run: find dist -type f
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.event.inputs.version || github.ref_name }}
+          name: GameMotion ${{ github.event.inputs.version || github.ref_name }}
+          body: |
+            ## GameMotion Release
+
+            ### Downloads
+            - **Windows**: Download the `.exe` installer
+            - **macOS**: Download the `.dmg` (or `.zip` for manual install)
+            - **Linux**: Download the `.AppImage` or `.deb`
+
+            ### First-time Setup
+            1. Install the application
+            2. Run the included backend setup script
+            3. Grant camera and accessibility permissions when prompted
+
+            See [README](https://github.com/AndrewBai-Marketing/GameMotion/blob/main/README.md) for detailed instructions.
+          files: |
+            dist/**/*.exe
+            dist/**/*.msi
+            dist/**/*.dmg
+            dist/**/*.zip
+            dist/**/*.AppImage
+            dist/**/*.deb
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
