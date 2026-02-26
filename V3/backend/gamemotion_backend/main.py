@@ -2,7 +2,7 @@ import cv2, os, sys, time, argparse, logging, threading, pathlib, json
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 
-from .util import ensure_dirs, load_json, setup_logging, CONFIG_DIR
+from .util import ensure_dirs, load_json, setup_logging, CONFIG_DIR, DATA_DIR
 from .pose import PoseTracker
 from .features import extract_angle_signature
 from .actions import ActionRecognizer, ActionDB
@@ -94,7 +94,18 @@ def main():
     ap.add_argument("--action", type=str, default=None)
     ap.add_argument("--samples", type=int, default=25)
     ap.add_argument("--no-api", action="store_true", help="Disable local API")
+    ap.add_argument("--static-dir", type=str, default=None,
+                    help="Serve static frontend files from this directory")
     args = ap.parse_args()
+
+    # Mount static frontend before starting the API server
+    if args.static_dir:
+        from starlette.staticfiles import StaticFiles
+        static_path = pathlib.Path(args.static_dir).resolve()
+        if static_path.is_dir():
+            fastapi_app.mount("/", StaticFiles(directory=str(static_path), html=True),
+                              name="static-frontend")
+            log.info(f"Serving static frontend from: {static_path}")
 
     # === PARALLEL INITIALIZATION ===
     # Start multiple components in parallel for faster startup
@@ -264,7 +275,7 @@ def main():
             game = tr["game"]
             action = tr["action"]
             samples = int(tr["samples"])
-            save_dir = (pathlib.Path(__file__).resolve().parent.parent / "data" / game / action)
+            save_dir = DATA_DIR / game / action
             save_dir.mkdir(parents=True, exist_ok=True)
             log.info(f"Training mode: game={game} action={action} samples={samples}")
             collected = 0

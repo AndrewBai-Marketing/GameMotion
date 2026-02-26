@@ -6,11 +6,7 @@ from typing import Dict, List, Tuple, Optional
 
 import numpy as np
 
-try:
-    # use your shared DATA_DIR if present
-    from .util import DATA_DIR  # type: ignore
-except Exception:
-    DATA_DIR = Path(__file__).resolve().parents[1] / "data"
+from .util import DATA_DIR
 
 log = logging.getLogger("actions")
 

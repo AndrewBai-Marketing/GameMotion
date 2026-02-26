@@ -7,24 +7,61 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version tag (e.g., v1.0.0)'
+        description: 'Version tag (e.g., v1.2.0)'
         required: true
-        default: 'v1.0.0'
+        default: 'v1.2.0'
 
 jobs:
+  # ──────────────────────────────────────────────────────────────
+  # Windows  (.exe installer)
+  # ──────────────────────────────────────────────────────────────
   build-windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Install dependencies
+      # ── Build Python backend with PyInstaller ──
+      - name: Install Python dependencies
+        working-directory: V3/backend
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build backend binary
+        working-directory: V3/backend
+        run: pyinstaller gamemotion_backend.spec --noconfirm
+
+      - name: Verify backend build
+        shell: bash
+        run: ls -la V3/backend/dist/GameMotionBackend/
+
+      # ── Build Next.js frontend (static export) ──
+      - name: Install frontend dependencies
+        working-directory: V3/frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: V3/frontend
+        run: npm run build
+
+      - name: Verify frontend build
+        shell: bash
+        run: ls -la V3/frontend/out/
+
+      # ── Package with Electron ──
+      - name: Install Electron dependencies
         working-directory: V3/electron
-        run: npm install
+        run: npm ci
 
       - name: Build Windows installer
         working-directory: V3/electron
@@ -36,23 +73,58 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-installer
-          path: |
-            V3/electron/dist/*.exe
-            V3/electron/dist/*.msi
+          path: V3/electron/dist/*.exe
 
+  # ──────────────────────────────────────────────────────────────
+  # macOS  (.dmg + .zip, Apple Silicon)
+  # ──────────────────────────────────────────────────────────────
   build-mac:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Install dependencies
+      # ── Build Python backend with PyInstaller ──
+      - name: Install Python dependencies
+        working-directory: V3/backend
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build backend binary
+        working-directory: V3/backend
+        run: pyinstaller gamemotion_backend.spec --noconfirm
+
+      - name: Verify backend build
+        run: |
+          ls -la V3/backend/dist/GameMotionBackend/
+          file V3/backend/dist/GameMotionBackend/GameMotionBackend
+
+      # ── Build Next.js frontend (static export) ──
+      - name: Install frontend dependencies
+        working-directory: V3/frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: V3/frontend
+        run: npm run build
+
+      - name: Verify frontend build
+        run: ls -la V3/frontend/out/
+
+      # ── Package with Electron ──
+      - name: Install Electron dependencies
         working-directory: V3/electron
-        run: npm install
+        run: npm ci
 
       - name: Build macOS installer
         working-directory: V3/electron
@@ -68,19 +140,56 @@ jobs:
             V3/electron/dist/*.dmg
             V3/electron/dist/*.zip
 
+  # ──────────────────────────────────────────────────────────────
+  # Linux  (.AppImage + .deb)
+  # ──────────────────────────────────────────────────────────────
   build-linux:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Install dependencies
+      # ── Build Python backend with PyInstaller ──
+      - name: Install Python dependencies
+        working-directory: V3/backend
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build backend binary
+        working-directory: V3/backend
+        run: pyinstaller gamemotion_backend.spec --noconfirm
+
+      - name: Verify backend build
+        run: |
+          ls -la V3/backend/dist/GameMotionBackend/
+          file V3/backend/dist/GameMotionBackend/GameMotionBackend
+
+      # ── Build Next.js frontend (static export) ──
+      - name: Install frontend dependencies
+        working-directory: V3/frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: V3/frontend
+        run: npm run build
+
+      - name: Verify frontend build
+        run: ls -la V3/frontend/out/
+
+      # ── Package with Electron ──
+      - name: Install Electron dependencies
         working-directory: V3/electron
-        run: npm install
+        run: npm ci
 
       - name: Build Linux installer
         working-directory: V3/electron
@@ -96,6 +205,9 @@ jobs:
             V3/electron/dist/*.AppImage
             V3/electron/dist/*.deb
 
+  # ──────────────────────────────────────────────────────────────
+  # Create GitHub Release with all installers
+  # ──────────────────────────────────────────────────────────────
   create-release:
     needs: [build-windows, build-mac, build-linux]
     runs-on: ubuntu-latest
@@ -120,18 +232,22 @@ jobs:
 
             ### Downloads
             - **Windows**: Download the `.exe` installer
-            - **macOS**: Download the `.dmg` (or `.zip` for manual install)
+            - **macOS (Apple Silicon)**: Download the `.dmg` (or `.zip` for manual install)
             - **Linux**: Download the `.AppImage` or `.deb`
 
             ### First-time Setup
-            1. Install the application
-            2. Run the included backend setup script
-            3. Grant camera and accessibility permissions when prompted
+            1. Install and launch the application
+            2. Grant camera permission when prompted
+            3. On macOS: grant Accessibility permission in System Preferences > Privacy & Security
+            4. The app creates its config directory automatically on first run
+
+            ### Notes
+            - macOS: If you see a Gatekeeper warning, right-click the app and choose "Open"
+            - Windows: If SmartScreen warns, click "More info" then "Run anyway"
 
             See [README](https://github.com/AndrewBai-Marketing/GameMotion/blob/main/README.md) for detailed instructions.
           files: |
             dist/**/*.exe
-            dist/**/*.msi
             dist/**/*.dmg
             dist/**/*.zip
             dist/**/*.AppImage

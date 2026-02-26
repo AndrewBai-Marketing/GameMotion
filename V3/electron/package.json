@@ -10,7 +10,7 @@
     "start": "electron .",
     "build": "electron-builder",
     "build:win": "electron-builder -w --x64",
-    "build:mac": "electron-builder -m --x64 --arm64",
+    "build:mac": "electron-builder -m",
     "build:linux": "electron-builder -l --x64",
     "build:all": "electron-builder -mwl"
   },
@@ -36,26 +36,14 @@
     ],
     "extraResources": [
       {
-        "from": "../backend",
-        "to": "backend",
-        "filter": [
-          "**/*",
-          "!**/__pycache__/**",
-          "!**/*.pyc",
-          "!.venv/**",
-          "!venv/**",
-          "!data/**",
-          "!logs/**"
-        ]
+        "from": "../backend/dist/GameMotionBackend",
+        "to": "backend/GameMotionBackend",
+        "filter": ["**/*"]
       },
       {
-        "from": "../frontend",
+        "from": "../frontend/out",
         "to": "frontend",
-        "filter": [
-          "**/*",
-          "!node_modules/**",
-          "!.next/**"
-        ]
+        "filter": ["**/*"]
       }
     ],
     "win": {
@@ -78,11 +66,11 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64", "arm64"]
+          "arch": ["arm64"]
         },
         {
           "target": "zip",
-          "arch": ["x64", "arm64"]
+          "arch": ["arm64"]
         }
       ],
       "icon": "build/icon.icns",

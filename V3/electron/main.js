@@ -6,18 +6,17 @@ const http = require("http");
 const net = require("net");
 const fs = require("fs");
 
-const isDev = process.env.NODE_ENV !== "production";
 const isWindows = process.platform === "win32";
 const isMac = process.platform === "darwin";
-const isLinux = process.platform === "linux";
+const isPackaged = app.isPackaged;
 
+const BACKEND_PORT = 8000;
+const BACKEND_HEALTH_URL = `http://127.0.0.1:${BACKEND_PORT}/health`;
 const FRONTEND_PORT = parseInt(process.env.FRONTEND_PORT || "3000", 10);
-const FRONTEND_URL = `http://127.0.0.1:${FRONTEND_PORT}/`;
-const BACKEND_URL = "http://127.0.0.1:8000/health";
 
 let win;
 let backendProc = null;
-let frontendProc = null;
+let frontendProc = null; // dev mode only
 
 /** ---------- tiny utils ---------- */
 function log(tag, ...args) {
@@ -50,9 +49,49 @@ async function waitForUrl(url, timeoutMs = 30000, intervalMs = 500) {
   return false;
 }
 
-/** ---------- find python executable ---------- */
+/** ========== PRODUCTION: launch PyInstaller binary ========== */
+async function startBackendProduction() {
+  const backendDir = path.join(process.resourcesPath, "backend", "GameMotionBackend");
+  const frontendDir = path.join(process.resourcesPath, "frontend");
+  const userDataDir = app.getPath("userData");
+
+  const exeName = isWindows ? "GameMotionBackend.exe" : "GameMotionBackend";
+  const exePath = path.join(backendDir, exeName);
+
+  if (!fs.existsSync(exePath)) {
+    log("backend", `ERROR: Backend binary not found at ${exePath}`);
+    return;
+  }
+
+  const env = {
+    ...process.env,
+    GAMEMOTION_DATA_DIR: userDataDir,
+  };
+
+  const args = ["--static-dir", frontendDir];
+
+  log("backend", `Starting production backend: ${exePath}`);
+  log("backend", `Static frontend dir: ${frontendDir}`);
+  log("backend", `User data dir: ${userDataDir}`);
+
+  backendProc = spawn(exePath, args, {
+    cwd: backendDir,
+    env,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+
+  backendProc.stdout.on("data", (d) => log("backend", d.toString().trim()));
+  backendProc.stderr.on("data", (d) => log("backend", d.toString().trim()));
+  backendProc.on("exit", (code, sig) => log("backend", "exited", code, sig));
+  backendProc.on("error", (err) => log("backend", "spawn error:", err.message));
+
+  const healthy = await waitForUrl(BACKEND_HEALTH_URL, 30000, 500);
+  if (healthy) log("electron", "Backend is healthy");
+  else log("electron", "Backend did not report healthy (continuing anyway)");
+}
+
+/** ========== DEVELOPMENT: spawn python + npm run dev ========== */
 function findPythonExecutable(backendDir) {
-  // Check for virtual environment first
   const venvPaths = isWindows
     ? [
         path.join(backendDir, ".venv", "Scripts", "python.exe"),
@@ -72,26 +111,22 @@ function findPythonExecutable(backendDir) {
     }
   }
 
-  // Fallback to system python
   const systemPython = isWindows ? "python" : "python3";
   log("python", `Using system python: ${systemPython}`);
   return systemPython;
 }
 
-/** ---------- spawn backend ---------- */
-async function startBackend() {
+async function startBackendDev() {
   const backendDir = path.resolve(__dirname, "..", "backend");
-  const env = { ...process.env };
   const python = findPythonExecutable(backendDir);
-  const args = ["-m", "gamemotion_backend.main"]; // no --preview when inside Electron
+  const args = ["-m", "gamemotion_backend.main"];
 
-  log("backend", `Starting backend with: ${python} ${args.join(" ")}`);
-  log("backend", `Working directory: ${backendDir}`);
+  log("backend", `[DEV] Starting: ${python} ${args.join(" ")}`);
 
   backendProc = spawn(python, args, {
     cwd: backendDir,
-    env,
-    shell: isWindows, // Use shell on Windows for better PATH handling
+    env: { ...process.env },
+    shell: isWindows,
   });
 
   backendProc.stdout.on("data", (d) => log("backend", d.toString().trim()));
@@ -99,29 +134,27 @@ async function startBackend() {
   backendProc.on("exit", (code, sig) => log("backend", "exited", code, sig));
   backendProc.on("error", (err) => log("backend", "spawn error:", err.message));
 
-  // wait until /health is OK (don't block forever)
-  const healthy = await waitForUrl(BACKEND_URL, 20000, 500);
+  const healthy = await waitForUrl(BACKEND_HEALTH_URL, 20000, 500);
   if (healthy) log("electron", "Backend is healthy");
   else log("electron", "Backend did not report healthy (continuing anyway)");
 }
 
-/** ---------- spawn frontend ---------- */
-async function startFrontend() {
+async function startFrontendDev() {
   const already = await portInUse(FRONTEND_PORT);
   if (already) {
-    log("frontend", `port ${FRONTEND_PORT} already in use; not spawning Next`);
+    log("frontend", `[DEV] port ${FRONTEND_PORT} already in use; not spawning Next`);
     return;
   }
 
   const frontendDir = path.resolve(__dirname, "..", "frontend");
   const npmCmd = isWindows ? "npm.cmd" : "npm";
 
-  log("frontend", `Starting frontend with: ${npmCmd} run dev`);
+  log("frontend", `[DEV] Starting: ${npmCmd} run dev`);
 
   frontendProc = spawn(npmCmd, ["run", "dev", "--", "-p", `${FRONTEND_PORT}`], {
     cwd: frontendDir,
-    env: { ...process.env, BROWSER: "none" }, // don't auto-open Chrome
-    shell: isWindows
+    env: { ...process.env, BROWSER: "none" },
+    shell: isWindows,
   });
 
   frontendProc.stdout.on("data", (d) => log("frontend", d.toString().trim()));
@@ -135,9 +168,8 @@ async function createWindow() {
   win = new BrowserWindow({
     width: 1280,
     height: 800,
-    show: false, // show when ready
+    show: false,
     backgroundColor: "#111111",
-    // macOS specific: show traffic lights
     titleBarStyle: isMac ? "hiddenInset" : "default",
     webPreferences: {
       nodeIntegration: false,
@@ -146,13 +178,11 @@ async function createWindow() {
     },
   });
 
-  // open target=_blank links in system browser
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: "deny" };
   });
 
-  // useful diagnostics
   win.webContents.on("did-fail-load", (e, code, desc, url) => {
     log("renderer", `did-fail-load ${code} ${desc} url=${url}`);
   });
@@ -164,9 +194,8 @@ async function createWindow() {
     log("console", message);
   });
 
-  // Build application menu
+  // Application menu
   const menuTemplate = [
-    // macOS app menu
     ...(isMac ? [{
       label: app.name,
       submenu: [
@@ -217,60 +246,69 @@ async function createWindow() {
     }
   ];
 
-  const menu = Menu.buildFromTemplate(menuTemplate);
-  Menu.setApplicationMenu(menu);
+  Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate));
 
-  // start services, then load URL
-  await startBackend();
-  await startFrontend();
+  if (isPackaged) {
+    // ── PRODUCTION ──────────────────────────────────────────────
+    log("electron", "Running in PRODUCTION mode");
+    await startBackendProduction();
 
-  const ok = await waitForUrl(FRONTEND_URL, 60000, 500);
-  if (!ok) {
-    log("electron", `Frontend never became ready at ${FRONTEND_URL}`);
+    const appUrl = `http://127.0.0.1:${BACKEND_PORT}/`;
+    const ok = await waitForUrl(appUrl, 30000, 500);
+    if (!ok) log("electron", `App never became ready at ${appUrl}`);
+
+    try {
+      await win.loadURL(appUrl);
+    } catch (e) {
+      log("electron", "loadURL error", e.message || e);
+      await sleep(1500);
+      try { await win.loadURL(appUrl); } catch {}
+    }
+
+  } else {
+    // ── DEVELOPMENT ────────────────────────────────────────────
+    log("electron", "Running in DEVELOPMENT mode");
+    await startBackendDev();
+    await startFrontendDev();
+
+    const frontendUrl = `http://127.0.0.1:${FRONTEND_PORT}/`;
+    const ok = await waitForUrl(frontendUrl, 60000, 500);
+    if (!ok) log("electron", `Frontend never became ready at ${frontendUrl}`);
+
+    try {
+      await win.loadURL(frontendUrl + "?inElectron=1");
+    } catch (e) {
+      log("electron", "loadURL error", e.message || e);
+      await sleep(1500);
+      try { await win.loadURL(frontendUrl); } catch {}
+    }
+
+    win.webContents.openDevTools({ mode: "detach" });
   }
-
-  try {
-    await win.loadURL(FRONTEND_URL + "?inElectron=1");
-  } catch (e) {
-    log("electron", "loadURL error", e.message || e);
-    // one retry after small delay
-    await sleep(1500);
-    try { await win.loadURL(FRONTEND_URL); } catch {}
-  }
-
-  if (isDev) win.webContents.openDevTools({ mode: "detach" });
 }
 
-// macOS: keep app running even when all windows closed
+// macOS: keep app running when all windows closed
 app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
-  }
+  if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });
 
 app.whenReady().then(createWindow);
 
 app.on("window-all-closed", () => {
-  // On macOS, apps typically stay open until explicitly quit
   if (!isMac) app.quit();
 });
 
 app.on("before-quit", () => {
-  // Clean up child processes
   const treeKill = require("tree-kill");
 
   if (frontendProc && frontendProc.pid) {
-    try {
-      treeKill(frontendProc.pid);
-    } catch (e) {
+    try { treeKill(frontendProc.pid); } catch (e) {
       log("cleanup", "Failed to kill frontend:", e.message);
     }
   }
 
   if (backendProc && backendProc.pid) {
-    try {
-      treeKill(backendProc.pid);
-    } catch (e) {
+    try { treeKill(backendProc.pid); } catch (e) {
       log("cleanup", "Failed to kill backend:", e.message);
     }
   }
