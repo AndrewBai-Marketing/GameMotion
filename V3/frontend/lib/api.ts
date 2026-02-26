@@ -76,4 +76,23 @@ export async function getProfile(exe_name: string) {
   return await jfetch<any>(`/profiles/${encodeURIComponent(exe_name)}`);
 }
 
+export const useProfile = (exe_name: string) =>
+  useSWR<any>(exe_name ? `/profiles/${encodeURIComponent(exe_name)}` : null, fetcher, {
+    refreshInterval: 5000,
+  });
+
+export async function saveSettings(settings: Record<string, any>) {
+  await jfetch("/settings", {
+    method: "POST",
+    body: JSON.stringify(settings),
+  });
+}
+
+export async function testAction(exe_name: string, action: string) {
+  await jfetch(`/profiles/${encodeURIComponent(exe_name)}/test`, {
+    method: "POST",
+    body: JSON.stringify({ action }),
+  });
+}
+
 export { API_BASE };
