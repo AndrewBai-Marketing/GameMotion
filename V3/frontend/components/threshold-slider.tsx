@@ -11,7 +11,7 @@ type Props = {
   step?: number;
 };
 
-export default function ThresholdSlider({
+export function ThresholdSlider({
   label,
   value = 0,
   onChange,
