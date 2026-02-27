@@ -2,7 +2,10 @@
   "name": "gamemotion-desktop",
   "version": "1.0.0",
   "description": "Control games with your body using pose detection",
-  "author": "GameMotion",
+  "author": {
+    "name": "GameMotion",
+    "email": "contact@gamemotion.app"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/AndrewBai-Marketing/GameMotion.git"
