@@ -223,10 +223,25 @@ jobs:
 
       - name: Build Linux installer
         working-directory: V3/electron
-        run: npx electron-builder -l --x64
+        run: npx electron-builder -l --x64 2>&1 | tee ../build-linux.log || true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DEBUG: electron-builder
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build-log
+          path: V3/build-linux.log
+
+      - name: Check build result
+        run: |
+          if [ ! -f V3/electron/dist/*.AppImage ] && [ ! -f V3/electron/dist/*.deb ]; then
+            echo "Build failed - see build log artifact"
+            cat V3/build-linux.log | tail -50
+            exit 1
+          fi
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
