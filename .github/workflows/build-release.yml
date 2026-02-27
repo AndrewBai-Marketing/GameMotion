@@ -63,22 +63,9 @@ jobs:
         working-directory: V3/electron
         run: npm ci
 
-      - name: Pre-build check
-        shell: bash
-        run: |
-          echo "=== Backend dist ==="
-          ls -la V3/backend/dist/GameMotionBackend/ | head -20
-          echo "=== Frontend out ==="
-          ls -la V3/frontend/out/ | head -20
-          echo "=== Electron build dir ==="
-          ls -la V3/electron/build/
-
       - name: Build Windows installer
         working-directory: V3/electron
         run: npx electron-builder -w --x64
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DEBUG: electron-builder
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
@@ -137,21 +124,9 @@ jobs:
         working-directory: V3/electron
         run: npm ci
 
-      - name: Pre-build check
-        run: |
-          echo "=== Backend dist ==="
-          ls -la V3/backend/dist/GameMotionBackend/ | head -20
-          echo "=== Frontend out ==="
-          ls -la V3/frontend/out/ | head -20
-          echo "=== Electron build dir ==="
-          ls -la V3/electron/build/
-
       - name: Build macOS installer
         working-directory: V3/electron
         run: npx electron-builder -m
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DEBUG: electron-builder
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
@@ -212,36 +187,9 @@ jobs:
         working-directory: V3/electron
         run: npm ci
 
-      - name: Pre-build check
-        run: |
-          echo "=== Backend dist ==="
-          ls -la V3/backend/dist/GameMotionBackend/ | head -20
-          echo "=== Frontend out ==="
-          ls -la V3/frontend/out/ | head -20
-          echo "=== Electron build dir ==="
-          ls -la V3/electron/build/
-
       - name: Build Linux installer
         working-directory: V3/electron
-        run: npx electron-builder -l --x64 2>&1 | tee ../build-linux.log || true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DEBUG: electron-builder
-
-      - name: Upload build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-build-log
-          path: V3/build-linux.log
-
-      - name: Check build result
-        run: |
-          if [ ! -f V3/electron/dist/*.AppImage ] && [ ! -f V3/electron/dist/*.deb ]; then
-            echo "Build failed - see build log artifact"
-            cat V3/build-linux.log | tail -50
-            exit 1
-          fi
+        run: npx electron-builder -l --x64
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4

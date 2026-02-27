@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "description": "Control games with your body using pose detection",
   "author": "GameMotion",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AndrewBai-Marketing/GameMotion.git"
+  },
   "private": true,
   "main": "main.js",
   "scripts": {
@@ -26,6 +30,7 @@
   "build": {
     "appId": "org.gamemotion.desktop",
     "productName": "GameMotion",
+    "publish": null,
     "directories": {
       "buildResources": "build",
       "output": "dist"
