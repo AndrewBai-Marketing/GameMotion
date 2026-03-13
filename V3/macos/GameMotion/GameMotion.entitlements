@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Mac App Store sandbox (required) -->
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+
+    <!-- Camera for pose detection -->
+    <key>com.apple.security.device.camera</key>
+    <true/>
+
+    <!-- Local HTTP server (Python backend on port 8000) -->
+    <key>com.apple.security.network.server</key>
+    <true/>
+
+    <!-- Outbound network (health checks, optional AI features) -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+
+    <!-- User-selected files: import/export profiles and training data -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+
+    <!--
+        Hardened runtime exceptions needed by the bundled Python/MediaPipe binary.
+        Apple allows these for apps that justify them — they are NOT the same as
+        the JIT exception that blocks plain Electron from the MAS.
+    -->
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+</dict>
+</plist>

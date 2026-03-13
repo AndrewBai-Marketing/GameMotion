@@ -1,0 +1,113 @@
+name: GameMotion
+options:
+  bundleIdPrefix: org.gamemotion
+  deploymentTarget:
+    macOS: "13.0"
+  xcodeVersion: "15"
+  createIntermediateGroups: true
+
+targets:
+  GameMotion:
+    type: application
+    platform: macOS
+    deploymentTarget: "13.0"
+
+    sources:
+      - path: GameMotion
+        excludes:
+          - "*.entitlements"   # handled via CODE_SIGN_ENTITLEMENTS setting
+
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.gamemotion.app
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        MACOSX_DEPLOYMENT_TARGET: "13.0"
+        SWIFT_VERSION: "5.9"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_ENTITLEMENTS: GameMotion/GameMotion.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
+
+        # ── Signing ─────────────────────────────────────────────────────────
+        # For local development, set CODE_SIGN_STYLE to Automatic and fill in
+        # your DEVELOPMENT_TEAM (10-char Team ID from developer.apple.com).
+        #
+        # For Mac App Store submission, change to:
+        #   CODE_SIGN_STYLE: Manual
+        #   CODE_SIGN_IDENTITY: Apple Distribution
+        #   PROVISIONING_PROFILE_SPECIFIER: <your MAS provisioning profile name>
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: ""   # ← Fill in your Apple Team ID here
+
+    info:
+      path: GameMotion/Info.plist
+      properties:
+        CFBundleName: GameMotion
+        CFBundleDisplayName: GameMotion
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        LSMinimumSystemVersion: "$(MACOSX_DEPLOYMENT_TARGET)"
+        NSHighResolutionCapable: true
+        LSApplicationCategoryType: public.app-category.games
+        NSHumanReadableCopyright: "Copyright © 2025 GameMotion. All rights reserved."
+
+        # Privacy usage descriptions (required by App Store review)
+        NSCameraUsageDescription: >
+          GameMotion uses the camera to track your body movements and convert them
+          into game controls in real time.
+        NSAccessibilityUsageDescription: >
+          GameMotion needs Accessibility access to send keystrokes to your games
+          based on your body movements.
+
+    # Copy the pre-built backend and frontend into the app bundle at build time.
+    # Run `pyinstaller gamemotion_backend.spec` and `npm run build` first.
+    postBuildScripts:
+      - name: "Copy Backend & Frontend into App Bundle"
+        script: |
+          set -e
+          RESOURCES="${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources"
+
+          # ── Python backend (PyInstaller --onedir output) ──────────────────
+          BACKEND_SRC="${SRCROOT}/../backend/dist/GameMotionBackend"
+          if [ -d "$BACKEND_SRC" ]; then
+            mkdir -p "$RESOURCES/backend"
+            rsync -a --delete "$BACKEND_SRC" "$RESOURCES/backend/"
+            echo "✓ Copied backend from $BACKEND_SRC"
+          else
+            echo "⚠️  Backend not built yet — run: cd V3/backend && pyinstaller gamemotion_backend.spec"
+          fi
+
+          # ── Next.js static export ─────────────────────────────────────────
+          FRONTEND_SRC="${SRCROOT}/../frontend/out"
+          if [ -d "$FRONTEND_SRC" ]; then
+            mkdir -p "$RESOURCES/frontend"
+            rsync -a --delete "$FRONTEND_SRC/" "$RESOURCES/frontend/"
+            echo "✓ Copied frontend from $FRONTEND_SRC"
+          else
+            echo "⚠️  Frontend not built yet — run: cd V3/frontend && npm run build"
+          fi
+        shell: /bin/bash
+
+      - name: "Re-sign Backend Binary for Hardened Runtime"
+        script: |
+          set -e
+          BACKEND_EXE="${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/backend/GameMotionBackend/GameMotionBackend"
+
+          if [ ! -f "$BACKEND_EXE" ]; then
+            echo "Backend exe not present — skipping re-sign step"
+            exit 0
+          fi
+
+          ENTITLEMENTS="${SRCROOT}/GameMotion/backend.entitlements"
+          if [ ! -f "$ENTITLEMENTS" ]; then
+            echo "No backend.entitlements file — skipping re-sign step"
+            exit 0
+          fi
+
+          echo "Re-signing backend binary…"
+          codesign --force --deep --sign "${EXPANDED_CODE_SIGN_IDENTITY}" \
+            --entitlements "$ENTITLEMENTS" \
+            --timestamp \
+            "$BACKEND_EXE"
+          echo "✓ Backend binary re-signed"
+        shell: /bin/bash

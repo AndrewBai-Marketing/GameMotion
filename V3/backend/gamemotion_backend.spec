@@ -2,7 +2,7 @@
 # PyInstaller spec for GameMotion Backend
 # Build with:  pyinstaller gamemotion_backend.spec --noconfirm
 
-import sys
+import sys, os, pathlib
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 block_cipher = None
@@ -114,8 +114,15 @@ exe = EXE(
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
+    # For Mac App Store builds, set CODESIGN_IDENTITY env var to your
+    # "Apple Distribution: ..." certificate name and point ENTITLEMENTS_FILE
+    # to the backend.entitlements path before running pyinstaller.
+    codesign_identity=os.environ.get("CODESIGN_IDENTITY"),
+    entitlements_file=os.environ.get(
+        "ENTITLEMENTS_FILE",
+        str(pathlib.Path(SPECPATH).parent / "macos" / "GameMotion" / "backend.entitlements")
+        if is_mac else None,
+    ),
 )
 
 coll = COLLECT(
