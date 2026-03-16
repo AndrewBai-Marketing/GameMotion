@@ -29,7 +29,7 @@ elif is_win:
     ]
 
 a = Analysis(
-    ["gamemotion_backend/main.py"],
+    ["run.py"],
     pathex=[],
     binaries=[],
     datas=[

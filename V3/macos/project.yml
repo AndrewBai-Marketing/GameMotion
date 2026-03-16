@@ -91,7 +91,8 @@ targets:
       - name: "Re-sign Backend Binary for Hardened Runtime"
         script: |
           set -e
-          BACKEND_EXE="${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/backend/GameMotionBackend/GameMotionBackend"
+          BUNDLE="${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/backend/GameMotionBackend"
+          BACKEND_EXE="$BUNDLE/GameMotionBackend"
 
           if [ ! -f "$BACKEND_EXE" ]; then
             echo "Backend exe not present — skipping re-sign step"
@@ -99,15 +100,27 @@ targets:
           fi
 
           ENTITLEMENTS="${SRCROOT}/GameMotion/backend.entitlements"
-          if [ ! -f "$ENTITLEMENTS" ]; then
-            echo "No backend.entitlements file — skipping re-sign step"
-            exit 0
+
+          # Pick signing identity: use real identity for MAS, fall back to ad-hoc for local dev
+          if [ -n "${EXPANDED_CODE_SIGN_IDENTITY}" ]; then
+            IDENTITY="${EXPANDED_CODE_SIGN_IDENTITY}"
+            echo "Signing with identity: $IDENTITY"
+          else
+            IDENTITY="-"
+            echo "No signing identity — using ad-hoc for local dev"
           fi
 
-          echo "Re-signing backend binary…"
-          codesign --force --deep --sign "${EXPANDED_CODE_SIGN_IDENTITY}" \
-            --entitlements "$ENTITLEMENTS" \
-            --timestamp \
-            "$BACKEND_EXE"
+          # Re-sign all bundled .so and .dylib files first
+          find "$BUNDLE/_internal" \( -name "*.so" -o -name "*.dylib" \) | while read f; do
+            codesign --force --sign "$IDENTITY" "$f" 2>/dev/null
+          done
+
+          # Re-sign the main executable with entitlements
+          if [ -f "$ENTITLEMENTS" ]; then
+            codesign --force --sign "$IDENTITY" --entitlements "$ENTITLEMENTS" "$BACKEND_EXE"
+          else
+            codesign --force --sign "$IDENTITY" "$BACKEND_EXE"
+          fi
+
           echo "✓ Backend binary re-signed"
         shell: /bin/bash

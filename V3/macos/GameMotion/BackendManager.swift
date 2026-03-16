@@ -41,14 +41,26 @@ class BackendManager: ObservableObject {
         proc.standardOutput = stdout
         proc.standardError = stderr
 
+        let logURL = URL(fileURLWithPath: "/tmp/gamemotion_backend.log")
+        try? "".write(to: logURL, atomically: true, encoding: .utf8)
+        let logHandle = try? FileHandle(forWritingTo: logURL)
+
         stdout.fileHandleForReading.readabilityHandler = { handle in
-            if let line = String(data: handle.availableData, encoding: .utf8), !line.isEmpty {
-                print("[backend] \(line.trimmingCharacters(in: .whitespacesAndNewlines))")
+            let data = handle.availableData
+            if !data.isEmpty {
+                logHandle?.write(data)
+                if let line = String(data: data, encoding: .utf8) {
+                    print("[backend] \(line.trimmingCharacters(in: .whitespacesAndNewlines))")
+                }
             }
         }
         stderr.fileHandleForReading.readabilityHandler = { handle in
-            if let line = String(data: handle.availableData, encoding: .utf8), !line.isEmpty {
-                print("[backend] \(line.trimmingCharacters(in: .whitespacesAndNewlines))")
+            let data = handle.availableData
+            if !data.isEmpty {
+                logHandle?.write(data)
+                if let line = String(data: data, encoding: .utf8) {
+                    print("[backend] \(line.trimmingCharacters(in: .whitespacesAndNewlines))")
+                }
             }
         }
         proc.terminationHandler = { p in
